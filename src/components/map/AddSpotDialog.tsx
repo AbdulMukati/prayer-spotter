@@ -9,6 +9,7 @@ import { useToast } from "../ui/use-toast";
 import { useState } from "react";
 import { geocodeAddress } from "@/utils/geocoding";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AddSpotDialogProps {
   onSpotAdded: () => void;
