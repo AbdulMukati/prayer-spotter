@@ -3,20 +3,11 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthProvider';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Search, Plus, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { Database } from '@/integrations/supabase/types';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
+import { SearchBar } from './map/SearchBar';
+import { AddSpotDialog } from './map/AddSpotDialog';
 
 type PrayerSpot = Database['public']['Tables']['prayer_spots']['Row'];
 
@@ -66,7 +57,6 @@ export const Map = () => {
     fetchPrayerSpots();
   }, [toast]);
 
-  // Initialize map
   useEffect(() => {
     const initializeMap = async () => {
       if (!mapContainer.current || map.current) return;
@@ -230,89 +220,17 @@ export const Map = () => {
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="w-full h-full" />
       
-      {/* Search Bar - Centered at the top */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-          <Input
-            type="text"
-            placeholder="Search prayer spots by name, address, or description..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 w-full h-12 text-lg shadow-lg"
-          />
-        </div>
-      </div>
+      <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
       {/* Add Spot Button - Bottom right */}
       <div className="absolute bottom-4 right-4 flex gap-2">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                if (!user) {
-                  toast({
-                    title: 'Authentication Required',
-                    description: 'Please sign in to add a prayer spot',
-                    variant: 'destructive',
-                  });
-                  return;
-                }
-                setIsAddingSpot(true);
-              }}
-              className="bg-primary text-white hover:bg-primary/90 shadow-lg"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Spot
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Prayer Spot</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={newSpot.name}
-                  onChange={(e) => setNewSpot(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={newSpot.address}
-                  onChange={(e) => setNewSpot(prev => ({ ...prev, address: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newSpot.description}
-                  onChange={(e) => setNewSpot(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Click on the map to set the location
-              </p>
-              {newSpot.latitude !== 0 && (
-                <p className="text-sm">
-                  Selected location: {newSpot.latitude.toFixed(6)}, {newSpot.longitude.toFixed(6)}
-                </p>
-              )}
-              <Button
-                onClick={handleAddPrayerSpot}
-                disabled={!newSpot.name || newSpot.latitude === 0}
-                className="w-full"
-              >
-                Add Prayer Spot
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AddSpotDialog
+          isAddingSpot={isAddingSpot}
+          setIsAddingSpot={setIsAddingSpot}
+          newSpot={newSpot}
+          setNewSpot={setNewSpot}
+          onAddSpot={handleAddPrayerSpot}
+        />
       </div>
 
       {/* Loading Indicator */}
