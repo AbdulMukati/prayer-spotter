@@ -17,7 +17,10 @@ serve(async (req) => {
     if (!GOOGLE_MAPS_API_KEY) {
       console.error('Google Maps API key not found in environment variables');
       return new Response(
-        JSON.stringify({ error: 'Google Maps API key not configured' }),
+        JSON.stringify({ 
+          error: 'Google Maps API key not configured',
+          details: 'The API key is missing from environment variables'
+        }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -25,11 +28,18 @@ serve(async (req) => {
       );
     }
 
-    // Add console log to help debug
-    console.log('Returning Google Maps API key:', GOOGLE_MAPS_API_KEY.substring(0, 5) + '...');
+    // Add detailed logging
+    console.log('Google Maps API key found:', {
+      keyLength: GOOGLE_MAPS_API_KEY.length,
+      keyStart: GOOGLE_MAPS_API_KEY.substring(0, 5),
+      keyEnd: GOOGLE_MAPS_API_KEY.substring(GOOGLE_MAPS_API_KEY.length - 5)
+    });
 
     return new Response(
-      JSON.stringify({ GOOGLE_MAPS_API_KEY }),
+      JSON.stringify({ 
+        GOOGLE_MAPS_API_KEY,
+        status: 'success'
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
@@ -37,7 +47,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in get-google-maps-key function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message 
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
