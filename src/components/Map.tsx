@@ -6,7 +6,9 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { Database } from '@/integrations/supabase/types';
 import { SearchBar } from './map/SearchBar';
-import { AddSpotDialog } from './map/AddSpotDialog';
+import { Button } from './ui/button';
+import { Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 
 type PrayerSpot = Database['public']['Tables']['prayer_spots']['Row'];
@@ -22,8 +24,9 @@ export const Map = () => {
   const [prayerSpots, setPrayerSpots] = useState<PrayerSpot[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
-  // Fetch prayer spots
   const fetchPrayerSpots = async () => {
     setIsLoading(true);
     const { data, error } = await supabase
@@ -56,11 +59,19 @@ export const Map = () => {
         const { data } = await supabase.functions.invoke('get-mapbox-token');
         mapboxgl.accessToken = data.token;
 
+        // Get user's location first
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+
+        const userLng = position.coords.longitude;
+        const userLat = position.coords.latitude;
+
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
           style: 'mapbox://styles/mapbox/streets-v12',
-          center: [lng, lat],
-          zoom: zoom
+          center: [userLng, userLat],
+          zoom: 12
         });
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -72,22 +83,6 @@ export const Map = () => {
           setZoom(Number(map.current.getZoom().toFixed(2)));
         });
 
-        // Get user's location
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              if (map.current) {
-                map.current.flyTo({
-                  center: [position.coords.longitude, position.coords.latitude],
-                  zoom: 12
-                });
-              }
-            },
-            (error) => {
-              console.error('Error getting location:', error);
-            }
-          );
-        }
       } catch (error) {
         console.error('Error initializing map:', error);
         toast({
@@ -108,7 +103,6 @@ export const Map = () => {
     };
   }, []);
 
-  const { user } = useAuth();
   const [userProfile, setUserProfile] = useState<{ is_admin: boolean } | null>(null);
 
   useEffect(() => {
@@ -239,9 +233,21 @@ export const Map = () => {
       
       <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
-      {/* Add Spot Button - Moved higher */}
+      {/* Add Spot Button */}
       <div className="fixed bottom-[116px] right-4 z-50 flex gap-2">
-        <AddSpotDialog onSpotAdded={fetchPrayerSpots} />
+        <Button
+          onClick={() => {
+            if (!user) {
+              navigate("/auth");
+              return;
+            }
+            navigate("/add");
+          }}
+          size="icon"
+          className="bg-primary text-white hover:bg-primary/90 shadow-lg"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Loading Indicator */}

@@ -1,25 +1,21 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
-import { useAuth } from "../AuthProvider";
-import { useToast } from "../ui/use-toast";
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { SpotFormFields } from "./SpotFormFields";
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/components/AuthProvider';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { SpotFormFields } from '@/components/map/SpotFormFields';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
-interface AddSpotDialogProps {
-  onSpotAdded: () => void;
-}
-
-export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
+const AddPrayerSpot = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
   const [googleMapsKey, setGoogleMapsKey] = useState<string | null>(null);
   const [searchBox, setSearchBox] = useState<google.maps.places.Autocomplete | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
   const [newSpot, setNewSpot] = useState({
     name: "",
     description: "",
@@ -31,6 +27,27 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
   });
 
   useEffect(() => {
+    // Get user's location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          setNewSpot(prev => ({
+            ...prev,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          }));
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
+    }
+
+    // Fetch Google Maps API key
     const fetchGoogleMapsKey = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-google-maps-key');
@@ -51,10 +68,8 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
       }
     };
 
-    if (isOpen) {
-      fetchGoogleMapsKey();
-    }
-  }, [isOpen, toast]);
+    fetchGoogleMapsKey();
+  }, []);
 
   const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
     setSearchBox(autocomplete);
@@ -89,8 +104,8 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     return `${cleanCountry}/${cleanCity}/${cleanName}`;
   };
 
-  const handleAddSpot = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault(); // Prevent form submission
+  const handleAddSpot = async (e: React.FormEvent) => {
+    e.preventDefault();
     
     if (!user) {
       navigate("/auth");
@@ -130,18 +145,6 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
         title: "Success",
         description: "Prayer spot added successfully!",
       });
-
-      onSpotAdded();
-      setIsOpen(false);
-      setNewSpot({
-        name: "",
-        description: "",
-        address: "",
-        latitude: 0,
-        longitude: 0,
-        city: "",
-        country: "",
-      });
       
       if (spot) {
         navigate(`/${spot.slug}`);
@@ -158,55 +161,40 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     }
   };
 
+  if (!user) {
+    navigate("/auth");
+    return null;
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+    <div className="container max-w-2xl mx-auto py-8 px-4">
+      <h1 className="text-2xl font-bold mb-6">Add New Prayer Spot</h1>
+      <form onSubmit={handleAddSpot} className="space-y-6">
+        <SpotFormFields
+          newSpot={newSpot}
+          setNewSpot={setNewSpot}
+          searchBox={searchBox}
+          onLoad={onLoad}
+          onPlaceChanged={onPlaceChanged}
+          googleMapsKey={googleMapsKey}
+        />
         <Button
-          onClick={() => {
-            if (!user) {
-              navigate("/auth");
-              return;
-            }
-            setIsOpen(true);
-          }}
-          size="icon"
-          className="bg-primary text-white hover:bg-primary/90 shadow-lg"
+          type="submit"
+          disabled={!newSpot.name || !newSpot.address || isLoading}
+          className="w-full"
         >
-          <Plus className="h-4 w-4" />
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            "Add Prayer Spot"
+          )}
         </Button>
-      </DialogTrigger>
-      {user && (
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New Prayer Spot</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={(e) => e.preventDefault()}>
-            <SpotFormFields
-              newSpot={newSpot}
-              setNewSpot={setNewSpot}
-              searchBox={searchBox}
-              onLoad={onLoad}
-              onPlaceChanged={onPlaceChanged}
-              googleMapsKey={googleMapsKey}
-            />
-            <Button
-              onClick={handleAddSpot}
-              disabled={!newSpot.name || !newSpot.address || isLoading}
-              className="w-full mt-4"
-              type="button"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Add Prayer Spot"
-              )}
-            </Button>
-          </form>
-        </DialogContent>
-      )}
-    </Dialog>
+      </form>
+    </div>
   );
 };
+
+export default AddPrayerSpot;

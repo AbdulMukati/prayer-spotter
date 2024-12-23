@@ -8,6 +8,7 @@ import { AuthProvider } from "./components/AuthProvider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import PrayerSpot from "./pages/PrayerSpot";
+import AddPrayerSpot from "./pages/AddPrayerSpot";
 
 const App = () => {
   const [queryClient] = useState(() => new QueryClient({
@@ -29,6 +30,7 @@ const App = () => {
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<Index />} />
+              <Route path="/add" element={<AddPrayerSpot />} />
               <Route path="/:country/:city/:slug" element={<PrayerSpot />} />
             </Routes>
           </BrowserRouter>
