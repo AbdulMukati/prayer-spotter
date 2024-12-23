@@ -3,9 +3,6 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
 
-// Initialize Mapbox
-mapboxgl.accessToken = await supabase.functions.invoke('get-mapbox-token').then(({ data }) => data.token);
-
 export const Map = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -14,38 +11,46 @@ export const Map = () => {
   const [zoom, setZoom] = useState(9);
 
   useEffect(() => {
-    if (!mapContainer.current || map.current) return;
+    const initializeMap = async () => {
+      if (!mapContainer.current || map.current) return;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [lng, lat],
-      zoom: zoom
-    });
+      // Get Mapbox token
+      const { data } = await supabase.functions.invoke('get-mapbox-token');
+      mapboxgl.accessToken = data.token;
 
-    map.current.on('move', () => {
-      if (!map.current) return;
-      setLng(Number(map.current.getCenter().lng.toFixed(4)));
-      setLat(Number(map.current.getCenter().lat.toFixed(4)));
-      setZoom(Number(map.current.getZoom().toFixed(2)));
-    });
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [lng, lat],
+        zoom: zoom
+      });
 
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          if (map.current) {
-            map.current.flyTo({
-              center: [position.coords.longitude, position.coords.latitude],
-              zoom: 12
-            });
+      map.current.on('move', () => {
+        if (!map.current) return;
+        setLng(Number(map.current.getCenter().lng.toFixed(4)));
+        setLat(Number(map.current.getCenter().lat.toFixed(4)));
+        setZoom(Number(map.current.getZoom().toFixed(2)));
+      });
+
+      // Get user's location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            if (map.current) {
+              map.current.flyTo({
+                center: [position.coords.longitude, position.coords.latitude],
+                zoom: 12
+              });
+            }
+          },
+          (error) => {
+            console.error('Error getting location:', error);
           }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
-    }
+        );
+      }
+    };
+
+    initializeMap();
 
     return () => {
       if (map.current) {
