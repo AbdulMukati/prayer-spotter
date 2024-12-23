@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SearchBar } from './SearchBar';
 import { AddSpotDialog } from './AddSpotDialog';
 import { useAuth } from '../AuthProvider';
@@ -12,10 +13,11 @@ interface MapControlsProps {
 export const MapControls = ({ onSpotAdded }: MapControlsProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
 
   return (
     <>
-      <SearchBar />
+      <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
       
       <div className="fixed bottom-[116px] right-4 z-50 flex gap-2">
         <AddSpotDialog onSpotAdded={onSpotAdded} />
