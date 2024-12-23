@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Loader2 } from "lucide-react";
 import { useAuth } from "../AuthProvider";
 import { useToast } from "../ui/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Autocomplete } from "@react-google-maps/api";
@@ -20,6 +20,8 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [googleMapsKey, setGoogleMapsKey] = useState<string | null>(null);
   const [searchBox, setSearchBox] = useState<google.maps.places.Autocomplete | null>(null);
   const [newSpot, setNewSpot] = useState({
     name: "",
@@ -30,6 +32,27 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     city: "",
     country: "",
   });
+
+  useEffect(() => {
+    const fetchGoogleMapsKey = async () => {
+      try {
+        const response = await fetch('/functions/v1/get-google-maps-key');
+        const data = await response.json();
+        if (data.GOOGLE_MAPS_API_KEY) {
+          setGoogleMapsKey(data.GOOGLE_MAPS_API_KEY);
+        }
+      } catch (error) {
+        console.error('Error fetching Google Maps key:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load address search functionality",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchGoogleMapsKey();
+  }, [toast]);
 
   const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
     setSearchBox(autocomplete);
@@ -83,7 +106,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
       setIsLoading(true);
       const slug = createSlug(newSpot.name, newSpot.city || 'unknown', newSpot.country || 'unknown');
       
-      const { error } = await supabase.from("prayer_spots").insert([
+      const { data: spot, error } = await supabase.from("prayer_spots").insert([
         {
           name: newSpot.name,
           description: newSpot.description,
@@ -95,7 +118,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
           city: newSpot.city || 'unknown',
           country: newSpot.country || 'unknown',
         },
-      ]);
+      ]).select().single();
 
       if (error) throw error;
 
@@ -105,6 +128,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
       });
 
       onSpotAdded();
+      setIsOpen(false);
       setNewSpot({
         name: "",
         description: "",
@@ -114,6 +138,11 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
         city: "",
         country: "",
       });
+      
+      // Navigate to the new prayer spot page
+      if (spot) {
+        navigate(`/${spot.slug}`);
+      }
     } catch (error) {
       console.error("Error adding prayer spot:", error);
       toast({
@@ -127,7 +156,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
   };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button
           onClick={() => {
@@ -135,6 +164,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
               navigate("/auth");
               return;
             }
+            setIsOpen(true);
           }}
           size="icon"
           className="bg-primary text-white hover:bg-primary/90 shadow-lg"
@@ -142,7 +172,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
           <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      {user && (
+      {user && googleMapsKey && (
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Add New Prayer Spot</DialogTitle>
@@ -156,6 +186,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
                 onChange={(e) =>
                   setNewSpot((prev) => ({ ...prev, name: e.target.value }))
                 }
+                placeholder="Enter mosque or prayer space name"
               />
             </div>
             <div>
@@ -170,6 +201,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
                   onChange={(e) =>
                     setNewSpot((prev) => ({ ...prev, address: e.target.value }))
                   }
+                  placeholder="Start typing to search for an address"
                 />
               </Autocomplete>
             </div>
@@ -184,6 +216,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
                     description: e.target.value,
                   }))
                 }
+                placeholder="Describe the prayer space, facilities, and any important information"
               />
             </div>
             {newSpot.latitude !== 0 && (
