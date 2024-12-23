@@ -1,15 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Plus, Loader2 } from "lucide-react";
 import { useAuth } from "../AuthProvider";
 import { useToast } from "../ui/use-toast";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Autocomplete } from "@react-google-maps/api";
+import { SpotFormFields } from "./SpotFormFields";
 
 interface AddSpotDialogProps {
   onSpotAdded: () => void;
@@ -85,7 +82,16 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     }
   };
 
-  const handleAddSpot = async () => {
+  const createSlug = (name: string, city: string, country: string) => {
+    const cleanName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const cleanCity = city.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const cleanCountry = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return `${cleanCountry}/${cleanCity}/${cleanName}`;
+  };
+
+  const handleAddSpot = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault(); // Prevent form submission
+    
     if (!user) {
       navigate("/auth");
       return;
@@ -152,13 +158,6 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     }
   };
 
-  const createSlug = (name: string, city: string, country: string) => {
-    const cleanName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const cleanCity = city.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const cleanCountry = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    return `${cleanCountry}/${cleanCity}/${cleanName}`;
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -181,69 +180,20 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
           <DialogHeader>
             <DialogTitle>Add New Prayer Spot</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={newSpot.name}
-                onChange={(e) =>
-                  setNewSpot((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="Enter mosque or prayer space name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="address">Address</Label>
-              {googleMapsKey ? (
-                <Autocomplete
-                  onLoad={onLoad}
-                  onPlaceChanged={onPlaceChanged}
-                >
-                  <Input
-                    id="address"
-                    value={newSpot.address}
-                    onChange={(e) =>
-                      setNewSpot((prev) => ({ ...prev, address: e.target.value }))
-                    }
-                    placeholder="Start typing to search for an address"
-                  />
-                </Autocomplete>
-              ) : (
-                <Input
-                  id="address"
-                  value={newSpot.address}
-                  onChange={(e) =>
-                    setNewSpot((prev) => ({ ...prev, address: e.target.value }))
-                  }
-                  placeholder="Loading address search..."
-                  disabled
-                />
-              )}
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={newSpot.description}
-                onChange={(e) =>
-                  setNewSpot((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                placeholder="Describe the prayer space, facilities, and any important information"
-              />
-            </div>
-            {newSpot.latitude !== 0 && (
-              <p className="text-sm text-muted-foreground">
-                Location found: {newSpot.city || 'Unknown city'}, {newSpot.country || 'Unknown country'}
-              </p>
-            )}
+          <form onSubmit={(e) => e.preventDefault()}>
+            <SpotFormFields
+              newSpot={newSpot}
+              setNewSpot={setNewSpot}
+              searchBox={searchBox}
+              onLoad={onLoad}
+              onPlaceChanged={onPlaceChanged}
+              googleMapsKey={googleMapsKey}
+            />
             <Button
               onClick={handleAddSpot}
               disabled={!newSpot.name || !newSpot.address || isLoading}
-              className="w-full"
+              className="w-full mt-4"
+              type="button"
             >
               {isLoading ? (
                 <>
@@ -254,7 +204,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
                 "Add Prayer Spot"
               )}
             </Button>
-          </div>
+          </form>
         </DialogContent>
       )}
     </Dialog>
