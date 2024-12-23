@@ -27,18 +27,28 @@ const AddPrayerSpot = () => {
     country: "",
   });
 
-  // Fetch Google Maps API key
+  // Load Google Maps script
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: googleMapsKey || '',
+    libraries: ['places'],
+  });
+
+  // Fetch Google Maps API key and get user location
   useEffect(() => {
     const fetchGoogleMapsKey = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-google-maps-key');
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching Google Maps key:', error);
+          throw error;
+        }
         
-        if (data.GOOGLE_MAPS_API_KEY) {
-          setGoogleMapsKey(data.GOOGLE_MAPS_API_KEY);
-        } else {
+        if (!data.GOOGLE_MAPS_API_KEY) {
           throw new Error('No API key returned');
         }
+
+        console.log('Google Maps API key received:', data.GOOGLE_MAPS_API_KEY.substring(0, 5) + '...');
+        setGoogleMapsKey(data.GOOGLE_MAPS_API_KEY);
       } catch (error) {
         console.error('Error fetching Google Maps key:', error);
         toast({
@@ -49,42 +59,45 @@ const AddPrayerSpot = () => {
       }
     };
 
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            console.log('Got user location:', { latitude, longitude });
+            setUserLocation({ lat: latitude, lng: longitude });
+            setNewSpot(prev => ({
+              ...prev,
+              latitude,
+              longitude
+            }));
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            toast({
+              title: "Location Error",
+              description: "Could not get your location. Please enter address manually.",
+              variant: "destructive",
+            });
+          }
+        );
+      }
+    };
+
     fetchGoogleMapsKey();
-
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          setNewSpot(prev => ({
-            ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          }));
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
-    }
-  }, []);
-
-  // Load Google Maps script
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: googleMapsKey || '',
-    libraries: ['places'],
-  });
+    getUserLocation();
+  }, [toast]);
 
   const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
+    console.log('Autocomplete loaded');
     setSearchBox(autocomplete);
   };
 
   const onPlaceChanged = () => {
     if (searchBox) {
       const place = searchBox.getPlace();
+      console.log('Place selected:', place);
+      
       if (place.geometry?.location) {
         const addressComponents = place.address_components || [];
         const city = addressComponents.find(component => 
@@ -102,13 +115,6 @@ const AddPrayerSpot = () => {
         }));
       }
     }
-  };
-
-  const createSlug = (name: string, city: string, country: string) => {
-    const cleanName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const cleanCity = city.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const cleanCountry = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    return `${cleanCountry}/${cleanCity}/${cleanName}`;
   };
 
   const handleAddSpot = async (e: React.FormEvent) => {
@@ -130,6 +136,15 @@ const AddPrayerSpot = () => {
 
     try {
       setIsLoading(true);
+      
+      // Create slug from name, city, and country
+      const createSlug = (name: string, city: string, country: string) => {
+        const cleanName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const cleanCity = city.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const cleanCountry = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        return `${cleanCountry}/${cleanCity}/${cleanName}`;
+      };
+
       const slug = createSlug(newSpot.name, newSpot.city || 'unknown', newSpot.country || 'unknown');
       
       const { data: spot, error } = await supabase.from("prayer_spots").insert([
@@ -174,9 +189,12 @@ const AddPrayerSpot = () => {
   }
 
   if (loadError) {
+    console.error('Google Maps load error:', loadError);
     return (
       <div className="container max-w-2xl mx-auto py-8 px-4">
-        <div className="text-red-500">Error loading Google Maps</div>
+        <div className="text-red-500">
+          Error loading Google Maps. Please try refreshing the page.
+        </div>
       </div>
     );
   }
@@ -185,7 +203,7 @@ const AddPrayerSpot = () => {
     return (
       <div className="container max-w-2xl mx-auto py-8 px-4 flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin mr-2" />
-        <span>Loading...</span>
+        <span>Loading map components...</span>
       </div>
     );
   }

@@ -25,6 +25,9 @@ serve(async (req) => {
       );
     }
 
+    // Add console log to help debug
+    console.log('Returning Google Maps API key:', GOOGLE_MAPS_API_KEY.substring(0, 5) + '...');
+
     return new Response(
       JSON.stringify({ GOOGLE_MAPS_API_KEY }),
       { 
