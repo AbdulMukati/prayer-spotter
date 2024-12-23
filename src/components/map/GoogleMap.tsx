@@ -24,9 +24,28 @@ export const Map = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [center, setCenter] = useState(defaultCenter);
+  const [apiKey, setApiKey] = useState<string>('');
+
+  // Fetch Google Maps API key from Supabase
+  useEffect(() => {
+    const fetchApiKey = async () => {
+      const { data: { GOOGLE_MAPS_API_KEY }, error } = await supabase.functions.invoke('get-google-maps-key');
+      if (error) {
+        console.error('Error fetching Google Maps API key:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load Google Maps',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setApiKey(GOOGLE_MAPS_API_KEY);
+    };
+    fetchApiKey();
+  }, []);
 
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY', // We'll need to set this up in Supabase
+    googleMapsApiKey: apiKey,
     libraries: ['places'],
   });
 
@@ -71,6 +90,15 @@ export const Map = () => {
       );
     }
   }, []);
+
+  if (!apiKey) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="ml-2">Loading map configuration...</span>
+      </div>
+    );
+  }
 
   if (loadError) {
     return (
