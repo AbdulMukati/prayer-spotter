@@ -14,7 +14,7 @@ const Index = () => {
     <div className="h-screen w-full relative">
       <Map />
       {!user && (
-        <div className="absolute top-4 left-4 z-10">
+        <div className="fixed bottom-4 left-4 z-10">
           <Button 
             onClick={() => navigate('/auth')}
             className="bg-primary text-white hover:bg-primary/90"

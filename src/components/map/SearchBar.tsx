@@ -8,7 +8,7 @@ interface SearchBarProps {
 
 export const SearchBar = ({ searchTerm, setSearchTerm }: SearchBarProps) => {
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-10">
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-[70%] px-4 z-10">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
         <Input
