@@ -9,6 +9,7 @@ import { useToast } from "../ui/use-toast";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Autocomplete } from "@react-google-maps/api";
 
 interface AddSpotDialogProps {
   onSpotAdded: () => void;
@@ -19,6 +20,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [searchBox, setSearchBox] = useState<google.maps.places.Autocomplete | null>(null);
   const [newSpot, setNewSpot] = useState({
     name: "",
     description: "",
@@ -29,36 +31,29 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     country: "",
   });
 
-  const handleAddressChange = async (address: string) => {
-    try {
-      const { data: { token } } = await supabase.functions.invoke('get-mapbox-token');
-      const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Geocoding request failed');
-      }
+  const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
+    setSearchBox(autocomplete);
+  };
 
-      const data = await response.json();
-      if (data.features?.length > 0) {
-        const feature = data.features[0];
+  const onPlaceChanged = () => {
+    if (searchBox) {
+      const place = searchBox.getPlace();
+      if (place.geometry?.location) {
+        const addressComponents = place.address_components || [];
+        const city = addressComponents.find(component => 
+          component.types.includes('locality'))?.long_name || '';
+        const country = addressComponents.find(component => 
+          component.types.includes('country'))?.long_name || '';
+
         setNewSpot(prev => ({
           ...prev,
-          address: feature.place_name,
-          latitude: feature.center[1],
-          longitude: feature.center[0],
-          city: feature.context?.find((c: any) => c.id.startsWith('place'))?.text || '',
-          country: feature.context?.find((c: any) => c.id.startsWith('country'))?.text || '',
+          address: place.formatted_address || '',
+          latitude: place.geometry!.location!.lat(),
+          longitude: place.geometry!.location!.lng(),
+          city: city || 'unknown',
+          country: country || 'unknown',
         }));
       }
-    } catch (error) {
-      console.error('Error geocoding address:', error);
-      toast({
-        title: "Error",
-        description: "Failed to get location data for this address",
-        variant: "destructive",
-      });
     }
   };
 
@@ -141,10 +136,10 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
               return;
             }
           }}
+          size="icon"
           className="bg-primary text-white hover:bg-primary/90 shadow-lg"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Spot
+          <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       {user && (
@@ -165,17 +160,18 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
             </div>
             <div>
               <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={newSpot.address}
-                onChange={(e) => {
-                  const address = e.target.value;
-                  setNewSpot(prev => ({ ...prev, address }));
-                  if (address.length > 3) {
-                    handleAddressChange(address);
+              <Autocomplete
+                onLoad={onLoad}
+                onPlaceChanged={onPlaceChanged}
+              >
+                <Input
+                  id="address"
+                  value={newSpot.address}
+                  onChange={(e) =>
+                    setNewSpot((prev) => ({ ...prev, address: e.target.value }))
                   }
-                }}
-              />
+                />
+              </Autocomplete>
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
