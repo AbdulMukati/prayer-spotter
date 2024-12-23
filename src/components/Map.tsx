@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { Database } from '@/integrations/supabase/types';
 import { SearchBar } from './map/SearchBar';
 import { AddSpotDialog } from './map/AddSpotDialog';
+import { useAuth } from './AuthProvider';
+import { Button } from './ui/button';
 
 type PrayerSpot = Database['public']['Tables']['prayer_spots']['Row'];
 
@@ -107,6 +109,73 @@ export const Map = () => {
     };
   }, []);
 
+  const { user } = useAuth();
+  const [userProfile, setUserProfile] = useState<{ is_admin: boolean } | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
+        setUserProfile(data);
+      }
+    };
+    fetchUserProfile();
+  }, [user]);
+
+  const handleDelete = async (spotId: string) => {
+    try {
+      const { error } = await supabase
+        .from('prayer_spots')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', spotId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Prayer spot deleted successfully',
+      });
+      
+      fetchPrayerSpots();
+    } catch (error) {
+      console.error('Error deleting prayer spot:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete prayer spot',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRestore = async (spotId: string) => {
+    try {
+      const { error } = await supabase
+        .from('prayer_spots')
+        .update({ deleted_at: null })
+        .eq('id', spotId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Prayer spot restored successfully',
+      });
+      
+      fetchPrayerSpots();
+    } catch (error) {
+      console.error('Error restoring prayer spot:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to restore prayer spot',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Update markers when prayer spots change or search term changes
   useEffect(() => {
     if (!map.current) return;
@@ -133,7 +202,17 @@ export const Map = () => {
           <h3 class="text-lg font-semibold mb-2">${spot.name}</h3>
           ${spot.address ? `<p class="text-sm text-gray-600 mb-2">${spot.address}</p>` : ''}
           ${spot.description ? `<p class="text-sm">${spot.description}</p>` : ''}
-          <a href="/${spot.slug}" class="text-primary hover:underline mt-2 inline-block">View Details</a>
+          <div class="flex gap-2 mt-2">
+            <a href="/${spot.slug}" class="text-primary hover:underline">View Details</a>
+            ${user && (user.id === spot.created_by || userProfile?.is_admin) ? `
+              <button 
+                onclick="window.handleSpotAction('${spot.id}', '${spot.deleted_at ? 'restore' : 'delete'}')"
+                class="text-destructive hover:underline"
+              >
+                ${spot.deleted_at ? 'Restore' : 'Delete'}
+              </button>
+            ` : ''}
+          </div>
         </div>
       `);
 
@@ -144,7 +223,16 @@ export const Map = () => {
 
       markersRef.current[spot.id] = marker;
     });
-  }, [prayerSpots, searchTerm]);
+
+    // Add global handler for delete/restore actions
+    window.handleSpotAction = async (spotId: string, action: 'delete' | 'restore') => {
+      if (action === 'delete') {
+        await handleDelete(spotId);
+      } else {
+        await handleRestore(spotId);
+      }
+    };
+  }, [prayerSpots, searchTerm, user, userProfile]);
 
   return (
     <div className="relative w-full h-full">
@@ -152,8 +240,8 @@ export const Map = () => {
       
       <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
-      {/* Add Spot Button - Bottom right */}
-      <div className="absolute bottom-4 right-4 flex gap-2">
+      {/* Add Spot Button - Fixed position for mobile */}
+      <div className="fixed bottom-4 right-4 z-50 flex gap-2">
         <AddSpotDialog onSpotAdded={fetchPrayerSpots} />
       </div>
 
@@ -168,7 +256,7 @@ export const Map = () => {
       )}
 
       {/* Coordinates Display */}
-      <div className="absolute bottom-4 left-4 bg-white/90 px-4 py-2 rounded shadow-lg text-sm">
+      <div className="fixed bottom-4 left-4 z-50 bg-white/90 px-4 py-2 rounded shadow-lg text-sm">
         Longitude: {lng} | Latitude: {lat} | Zoom: {zoom}
       </div>
     </div>

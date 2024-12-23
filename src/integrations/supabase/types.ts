@@ -48,6 +48,7 @@ export type Database = {
           country: string
           created_at: string
           created_by: string
+          deleted_at: string | null
           description: string | null
           id: string
           latitude: number
@@ -63,6 +64,7 @@ export type Database = {
           country: string
           created_at?: string
           created_by: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           latitude: number
@@ -78,6 +80,7 @@ export type Database = {
           country?: string
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           latitude?: number
@@ -103,6 +106,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_admin: boolean | null
           updated_at: string
           username: string | null
         }
@@ -111,6 +115,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          is_admin?: boolean | null
           updated_at?: string
           username?: string | null
         }
@@ -119,6 +124,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_admin?: boolean | null
           updated_at?: string
           username?: string | null
         }
