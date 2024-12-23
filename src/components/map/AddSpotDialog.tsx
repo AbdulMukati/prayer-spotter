@@ -6,12 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Loader2 } from "lucide-react";
 import { useAuth } from "../AuthProvider";
 import { useToast } from "../ui/use-toast";
-import { useState, useEffect } from "react";
-import { geocodeAddress } from "@/utils/geocoding";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface AddSpotDialogProps {
   onSpotAdded: () => void;
@@ -22,8 +19,6 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [newSpot, setNewSpot] = useState({
     name: "",
     description: "",
@@ -34,68 +29,37 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     country: "",
   });
 
-  // Get user's current location on mount
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const response = await fetch(
-              `https://api.mapbox.com/geocoding/v5/mapbox.places/${position.coords.longitude},${position.coords.latitude}.json?access_token=${process.env.MAPBOX_TOKEN}`
-            );
-            const data = await response.json();
-            if (data.features?.length > 0) {
-              const feature = data.features[0];
-              setNewSpot(prev => ({
-                ...prev,
-                address: feature.place_name,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                city: feature.context?.find((c: any) => c.id.startsWith('place'))?.text || '',
-                country: feature.context?.find((c: any) => c.id.startsWith('country'))?.text || '',
-              }));
-            }
-          } catch (error) {
-            console.error('Error reverse geocoding:', error);
-          }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
-    }
-  }, []);
-
   const handleAddressChange = async (address: string) => {
-    setNewSpot(prev => ({ ...prev, address }));
-    
-    if (address.length > 3) {
-      try {
-        const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${process.env.MAPBOX_TOKEN}`
-        );
-        const data = await response.json();
-        setAddressSuggestions(data.features || []);
-        setShowSuggestions(true);
-      } catch (error) {
-        console.error('Error fetching address suggestions:', error);
+    try {
+      const { data: { token } } = await supabase.functions.invoke('get-mapbox-token');
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Geocoding request failed');
       }
-    } else {
-      setAddressSuggestions([]);
-      setShowSuggestions(false);
-    }
-  };
 
-  const handleSelectAddress = (feature: any) => {
-    setNewSpot(prev => ({
-      ...prev,
-      address: feature.place_name,
-      latitude: feature.center[1],
-      longitude: feature.center[0],
-      city: feature.context?.find((c: any) => c.id.startsWith('place'))?.text || '',
-      country: feature.context?.find((c: any) => c.id.startsWith('country'))?.text || '',
-    }));
-    setShowSuggestions(false);
+      const data = await response.json();
+      if (data.features?.length > 0) {
+        const feature = data.features[0];
+        setNewSpot(prev => ({
+          ...prev,
+          address: feature.place_name,
+          latitude: feature.center[1],
+          longitude: feature.center[0],
+          city: feature.context?.find((c: any) => c.id.startsWith('place'))?.text || '',
+          country: feature.context?.find((c: any) => c.id.startsWith('country'))?.text || '',
+        }));
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get location data for this address",
+        variant: "destructive",
+      });
+    }
   };
 
   const createSlug = (name: string, city: string, country: string) => {
@@ -111,9 +75,18 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
       return;
     }
 
+    if (!newSpot.latitude || !newSpot.longitude) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid address",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
-      const slug = createSlug(newSpot.name, newSpot.city, newSpot.country);
+      const slug = createSlug(newSpot.name, newSpot.city || 'unknown', newSpot.country || 'unknown');
       
       const { error } = await supabase.from("prayer_spots").insert([
         {
@@ -124,8 +97,8 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
           longitude: newSpot.longitude,
           created_by: user.id,
           slug,
-          city: newSpot.city,
-          country: newSpot.country,
+          city: newSpot.city || 'unknown',
+          country: newSpot.country || 'unknown',
         },
       ]);
 
@@ -190,32 +163,19 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
                 }
               />
             </div>
-            <div className="relative">
+            <div>
               <Label htmlFor="address">Address</Label>
               <Input
                 id="address"
                 value={newSpot.address}
-                onChange={(e) => handleAddressChange(e.target.value)}
-                onFocus={() => setShowSuggestions(true)}
+                onChange={(e) => {
+                  const address = e.target.value;
+                  setNewSpot(prev => ({ ...prev, address }));
+                  if (address.length > 3) {
+                    handleAddressChange(address);
+                  }
+                }}
               />
-              {showSuggestions && addressSuggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white rounded-md shadow-lg">
-                  <Command>
-                    <CommandInput placeholder="Search address..." />
-                    <CommandEmpty>No address found.</CommandEmpty>
-                    <CommandGroup>
-                      {addressSuggestions.map((feature) => (
-                        <CommandItem
-                          key={feature.id}
-                          onSelect={() => handleSelectAddress(feature)}
-                        >
-                          {feature.place_name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </div>
-              )}
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
@@ -232,7 +192,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
             </div>
             {newSpot.latitude !== 0 && (
               <p className="text-sm text-muted-foreground">
-                Location found: {newSpot.city}, {newSpot.country}
+                Location found: {newSpot.city || 'Unknown city'}, {newSpot.country || 'Unknown country'}
               </p>
             )}
             <Button

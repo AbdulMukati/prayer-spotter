@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { Database } from '@/integrations/supabase/types';
 import { SearchBar } from './map/SearchBar';
 import { AddSpotDialog } from './map/AddSpotDialog';
 import { useAuth } from './AuthProvider';
-import { Button } from './ui/button';
 
 type PrayerSpot = Database['public']['Tables']['prayer_spots']['Row'];
 
@@ -240,8 +239,8 @@ export const Map = () => {
       
       <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
-      {/* Add Spot Button - Fixed position for mobile */}
-      <div className="fixed bottom-4 right-4 z-50 flex gap-2">
+      {/* Add Spot Button - Moved higher */}
+      <div className="fixed bottom-[116px] right-4 z-50 flex gap-2">
         <AddSpotDialog onSpotAdded={fetchPrayerSpots} />
       </div>
 
