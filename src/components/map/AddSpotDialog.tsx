@@ -36,10 +36,13 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
   useEffect(() => {
     const fetchGoogleMapsKey = async () => {
       try {
-        const response = await fetch('/functions/v1/get-google-maps-key');
-        const data = await response.json();
+        const { data, error } = await supabase.functions.invoke('get-google-maps-key');
+        if (error) throw error;
+        
         if (data.GOOGLE_MAPS_API_KEY) {
           setGoogleMapsKey(data.GOOGLE_MAPS_API_KEY);
+        } else {
+          throw new Error('No API key returned');
         }
       } catch (error) {
         console.error('Error fetching Google Maps key:', error);
@@ -51,8 +54,10 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
       }
     };
 
-    fetchGoogleMapsKey();
-  }, [toast]);
+    if (isOpen) {
+      fetchGoogleMapsKey();
+    }
+  }, [isOpen, toast]);
 
   const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
     setSearchBox(autocomplete);
@@ -78,13 +83,6 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
         }));
       }
     }
-  };
-
-  const createSlug = (name: string, city: string, country: string) => {
-    const cleanName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const cleanCity = city.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const cleanCountry = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    return `${cleanCountry}/${cleanCity}/${cleanName}`;
   };
 
   const handleAddSpot = async () => {
@@ -139,7 +137,6 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
         country: "",
       });
       
-      // Navigate to the new prayer spot page
       if (spot) {
         navigate(`/${spot.slug}`);
       }
@@ -153,6 +150,13 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const createSlug = (name: string, city: string, country: string) => {
+    const cleanName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const cleanCity = city.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const cleanCountry = country.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return `${cleanCountry}/${cleanCity}/${cleanName}`;
   };
 
   return (
@@ -172,7 +176,7 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
           <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      {user && googleMapsKey && (
+      {user && (
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Add New Prayer Spot</DialogTitle>
@@ -191,19 +195,31 @@ export const AddSpotDialog = ({ onSpotAdded }: AddSpotDialogProps) => {
             </div>
             <div>
               <Label htmlFor="address">Address</Label>
-              <Autocomplete
-                onLoad={onLoad}
-                onPlaceChanged={onPlaceChanged}
-              >
+              {googleMapsKey ? (
+                <Autocomplete
+                  onLoad={onLoad}
+                  onPlaceChanged={onPlaceChanged}
+                >
+                  <Input
+                    id="address"
+                    value={newSpot.address}
+                    onChange={(e) =>
+                      setNewSpot((prev) => ({ ...prev, address: e.target.value }))
+                    }
+                    placeholder="Start typing to search for an address"
+                  />
+                </Autocomplete>
+              ) : (
                 <Input
                   id="address"
                   value={newSpot.address}
                   onChange={(e) =>
                     setNewSpot((prev) => ({ ...prev, address: e.target.value }))
                   }
-                  placeholder="Start typing to search for an address"
+                  placeholder="Loading address search..."
+                  disabled
                 />
-              </Autocomplete>
+              )}
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
