@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './AuthProvider';
 import { Loader2 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { Database } from '@/integrations/supabase/types';
@@ -21,41 +20,32 @@ export const Map = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [prayerSpots, setPrayerSpots] = useState<PrayerSpot[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [newSpot, setNewSpot] = useState({
-    name: '',
-    description: '',
-    address: '',
-    latitude: 0,
-    longitude: 0,
-  });
-  const [isAddingSpot, setIsAddingSpot] = useState(false);
-  const { user } = useAuth();
   const { toast } = useToast();
 
   // Fetch prayer spots
+  const fetchPrayerSpots = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('prayer_spots')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching prayer spots:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load prayer spots',
+        variant: 'destructive',
+      });
+    } else {
+      setPrayerSpots(data || []);
+    }
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    const fetchPrayerSpots = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('prayer_spots')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching prayer spots:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load prayer spots',
-          variant: 'destructive',
-        });
-      } else {
-        setPrayerSpots(data || []);
-      }
-      setIsLoading(false);
-    };
-
     fetchPrayerSpots();
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     const initializeMap = async () => {
@@ -97,17 +87,6 @@ export const Map = () => {
             }
           );
         }
-
-        // Add click handler for new spots
-        map.current.on('click', (e) => {
-          if (isAddingSpot) {
-            setNewSpot(prev => ({
-              ...prev,
-              latitude: e.lngLat.lat,
-              longitude: e.lngLat.lng
-            }));
-          }
-        });
       } catch (error) {
         console.error('Error initializing map:', error);
         toast({
@@ -154,6 +133,7 @@ export const Map = () => {
           <h3 class="text-lg font-semibold mb-2">${spot.name}</h3>
           ${spot.address ? `<p class="text-sm text-gray-600 mb-2">${spot.address}</p>` : ''}
           ${spot.description ? `<p class="text-sm">${spot.description}</p>` : ''}
+          <a href="/${spot.slug}" class="text-primary hover:underline mt-2 inline-block">View Details</a>
         </div>
       `);
 
@@ -166,56 +146,6 @@ export const Map = () => {
     });
   }, [prayerSpots, searchTerm]);
 
-  const handleAddPrayerSpot = async () => {
-    if (!user) {
-      toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to add a prayer spot',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('prayer_spots')
-        .insert([{
-          ...newSpot,
-          created_by: user.id,
-        }]);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'Prayer spot added successfully!',
-      });
-
-      // Refresh prayer spots
-      const { data } = await supabase
-        .from('prayer_spots')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      setPrayerSpots(data || []);
-      setNewSpot({
-        name: '',
-        description: '',
-        address: '',
-        latitude: 0,
-        longitude: 0,
-      });
-      setIsAddingSpot(false);
-    } catch (error) {
-      console.error('Error adding prayer spot:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add prayer spot',
-        variant: 'destructive',
-      });
-    }
-  };
-
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="w-full h-full" />
@@ -224,13 +154,7 @@ export const Map = () => {
 
       {/* Add Spot Button - Bottom right */}
       <div className="absolute bottom-4 right-4 flex gap-2">
-        <AddSpotDialog
-          isAddingSpot={isAddingSpot}
-          setIsAddingSpot={setIsAddingSpot}
-          newSpot={newSpot}
-          setNewSpot={setNewSpot}
-          onAddSpot={handleAddPrayerSpot}
-        />
+        <AddSpotDialog onSpotAdded={fetchPrayerSpots} />
       </div>
 
       {/* Loading Indicator */}

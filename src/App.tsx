@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./components/AuthProvider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import PrayerSpot from "./pages/PrayerSpot";
 import { useState } from "react";
 
 const App = () => {
@@ -28,6 +29,7 @@ const App = () => {
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<Index />} />
+              <Route path="/:country/:city/:slug" element={<PrayerSpot />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>

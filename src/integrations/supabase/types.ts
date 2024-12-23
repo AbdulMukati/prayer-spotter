@@ -44,6 +44,8 @@ export type Database = {
       prayer_spots: {
         Row: {
           address: string | null
+          city: string
+          country: string
           created_at: string
           created_by: string
           description: string | null
@@ -51,11 +53,14 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          slug: string
           status: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          city: string
+          country: string
           created_at?: string
           created_by: string
           description?: string | null
@@ -63,11 +68,14 @@ export type Database = {
           latitude: number
           longitude: number
           name: string
+          slug: string
           status?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          city?: string
+          country?: string
           created_at?: string
           created_by?: string
           description?: string | null
@@ -75,6 +83,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           name?: string
+          slug?: string
           status?: string | null
           updated_at?: string
         }
