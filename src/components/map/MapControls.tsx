@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { SearchBar } from './SearchBar';
-import { AddSpotDialog } from './AddSpotDialog';
 import { useAuth } from '../AuthProvider';
 import { Button } from '../ui/button';
-import { LogIn } from 'lucide-react';
+import { LogIn, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface MapControlsProps {
@@ -20,7 +19,19 @@ export const MapControls = ({ onSpotAdded }: MapControlsProps) => {
       <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
       
       <div className="fixed bottom-[116px] right-4 z-50 flex gap-2">
-        <AddSpotDialog onSpotAdded={onSpotAdded} />
+        <Button
+          onClick={() => {
+            if (!user) {
+              navigate("/auth");
+              return;
+            }
+            navigate("/add");
+          }}
+          size="icon"
+          className="bg-primary text-white hover:bg-primary/90 shadow-lg"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
 
       {!user && (
