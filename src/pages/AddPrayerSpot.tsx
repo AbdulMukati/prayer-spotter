@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SpotFormFields } from '@/components/map/SpotFormFields';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { useLoadScript } from '@react-google-maps/api';
 
 const AddPrayerSpot = () => {
   const { user } = useAuth();
@@ -26,28 +27,8 @@ const AddPrayerSpot = () => {
     country: "",
   });
 
+  // Fetch Google Maps API key
   useEffect(() => {
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          setNewSpot(prev => ({
-            ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          }));
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
-    }
-
-    // Fetch Google Maps API key
     const fetchGoogleMapsKey = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-google-maps-key');
@@ -69,7 +50,33 @@ const AddPrayerSpot = () => {
     };
 
     fetchGoogleMapsKey();
+
+    // Get user's location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          setNewSpot(prev => ({
+            ...prev,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          }));
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
+    }
   }, []);
+
+  // Load Google Maps script
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: googleMapsKey || '',
+    libraries: ['places'],
+  });
 
   const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
     setSearchBox(autocomplete);
@@ -164,6 +171,23 @@ const AddPrayerSpot = () => {
   if (!user) {
     navigate("/auth");
     return null;
+  }
+
+  if (loadError) {
+    return (
+      <div className="container max-w-2xl mx-auto py-8 px-4">
+        <div className="text-red-500">Error loading Google Maps</div>
+      </div>
+    );
+  }
+
+  if (!isLoaded || !googleMapsKey) {
+    return (
+      <div className="container max-w-2xl mx-auto py-8 px-4 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        <span>Loading...</span>
+      </div>
+    );
   }
 
   return (
